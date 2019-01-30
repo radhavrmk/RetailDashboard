@@ -1,6 +1,8 @@
 library(shiny)
 library(shinydashboard)
 library(RColorBrewer)
+library(ggthemes)
+
 
 # Define server logic required to draw a histogram
 
@@ -81,7 +83,8 @@ shinyServer(function(input, output, session) {
     upd_df = applyFilters(df3,min_date = min_year(), max_date = max_year(), 
                           SA=sea_adjusted_flag(), data_type = sales_inventory_flag() )
     upd_df = applyRollups(upd_df, period = period_selected())
-    g = build_primary_plot(upd_df, growth_flag(), xlabel = "", ylabel = ylable_text )
+    g = build_primary_plot(upd_df, growth_flag(), xlabel = "", ylabel = ylable_text ) + theme_fivethirtyeight()
+
     ggplotly(g) %>% layout(legend = list(orientation = "h", x = 0.4, y =-0.2))
     
   })
@@ -126,7 +129,7 @@ shinyServer(function(input, output, session) {
                           SA=sea_adjusted_flag(), data_type = sales_inventory_flag(), master_cats = FALSE )
     upd_df = applyRollups(upd_df, period = period_selected())
 
-    g = treemap(upd_df,index = "cat_desc2", vSize = "value",title = "") + scale_fill_brewer(palette = "Set3")
+    g = treemap(upd_df,index = "cat_desc2", vSize = "value",title = "") + theme_foundation()
     g
   })
   
@@ -152,8 +155,9 @@ shinyServer(function(input, output, session) {
       theme(legend.position = "null") +
       scale_y_continuous(labels = percent) + 
       scale_x_continuous(labels = comma) +
-      labs(x = "Sales (in $bln)", y = "Growth")
-    
+      labs(x = "Sales (in $bln)", y = "Growth") +
+      theme_gdocs()
+      
     ggplotly(g)
   })
 
@@ -202,7 +206,20 @@ shinyServer(function(input, output, session) {
     ggplotly(g) %>% 
       layout(legend = list(orientation = "h", x = 0.4, y =-0.1))
   })
+  
+  output$seasonality_plot1 <- renderPlotly({
+    print("in the plot")
+    print(sector_selected())
+    g = getSeasonalityChart(nsa_cat_df, sector_selected())
+    ggplotly(g)
+  })
 
+  output$seasonality_plot2 <- renderPlotly({
+    g = getSeasonalityChart(nsa_cat_df, sector_selected(), data_type = "IM")
+    ggplotly(g) 
+  })
+  
+  
   output$ecom_value1 <- renderValueBox({
     value = ecomm_stats[ecomm_stats$cat_desc == "E-commerce Retail Sales",]$total_value
     value = paste0("$", round(value/1000,1), " bln")

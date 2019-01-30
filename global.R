@@ -6,6 +6,8 @@ library(dplyr)
 library(plotly)
 library(treemap)
 library(RColorBrewer)
+library(ggthemes)
+
 
 # Global Variables ####
 exclude_categories = c("44000", "4400C","44X72", "44Z72", "44W72", "441", "441X", "4411", "44111", "44112", "4413")
@@ -278,6 +280,8 @@ build_top5_plot = function(top_five, type_of_data="value", xlabel = "", ylabel="
     theme(axis.text.x = element_text(angle = 90, hjust = 1))+
     labs(x=xlabel, y =ylabel, title = title ) +
     theme(legend.text = element_text(colour="blue", size=7), legend.position="none") 
+  # + theme_bw()
+  
   
   if (type_of_data == "value") g = g + scale_y_continuous(labels = comma) 
   else if (type_of_data == "pct_diff") g = g + scale_y_continuous(labels = percent) 
@@ -314,31 +318,37 @@ getEcomYOYGrowth = function(){
 
 
 
+nsa_cat_df = df3 %>% filter(is_adj==0) %>% select(cat_desc2, date, dt_code, value) %>%
+    mutate(month_value = (year(date)-min(year(date)))*12 + month(date), month = as.factor(month(date)))
 
-# xx = df3 %>% filter(cat_desc2 == "Food and Beverage Stores", is_adj==0, dt_code=="SM") %>%
-#     select(date, value) %>% 
-#     mutate(xval = (year(date)-1992)*12 + month(date))
-# 
-# linearModel = loess(value~xval,na.omit(xx))           
-# 
-# summary(linearModel)
-# coeffx = linearModel$coefficients
-# res = linearModel$residuals
-# res2 = residuals(linearModel)
-# 
-# all.equal(res,res2)
-# 
-# xx %>% select(date, value) 
-# 
-# xx%>%    ggplot(aes(x= xval, y = value)) + geom_point(color="red") +
-#     geom_smooth(method = "loess", color = "blue")
-# 
-# yy = cbind(xx,res=res)
-# yy %>% 
-#   ggplot(aes(x= xval, y = value)) + geom_point(color="red") + 
-#   geom_smooth(method = "loess", color = "blue") +
-#   geom_point(aes(x=xval, y =value+res ), color = "green")
+xx = nsa_cat_df %>% filter(cat_desc2 == "All Other Gen. Merchandise Stores", dt_code == "SM")
 
+getSeasonalityChart = function(df, sector, data_type="SM") {
+  print("in getSeasonality")
+  print(sector)
+  print(dim(df))
+  df = df %>% filter(trimws(cat_desc2) == trimws(sector), dt_code==data_type)
+  print(dim(df))
+  linearModel = loess(value~month_value,na.omit(df))
+  summary(linearModel)  
+  df$model_residuals = residuals(linearModel)
+  g = df %>% ggplot(aes(x=month, y = model_residuals)) + 
+      geom_boxplot() +
+      stat_summary(fun.y=median, geom="smooth", aes(group=1), color="tomato") +
+      labs(x="Calendar Month", y="")
+  return(g)
+}
+
+# All Other Gen. Merchandise Stores
+g = getSeasonalityChart(nsa_cat_df, "All Other Gen. Merchandise Stores")
+
+g = getSeasonalityChart(nsa_cat_df, "Food and Beverage Stores")
+g
+# + 
+#   
+#       geom_point(aes(x = month, y = median(model_residuals)))
+
+# 
 
 
 # 

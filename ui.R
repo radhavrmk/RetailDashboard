@@ -19,6 +19,7 @@ ecomm_frow1 = fluidRow(
       title = "Revenue - eComm vs Retail",
       status = "success",
       solidHeader = TRUE,
+      collapsible = TRUE,
       plotlyOutput("ecom_sales")
     ),
     box(
@@ -26,6 +27,7 @@ ecomm_frow1 = fluidRow(
       title = "eComm as percent of Retail",
       status = "success",
       solidHeader = TRUE,
+      collapsible = TRUE,
       plotlyOutput("ecom_sales2")
     )
   )
@@ -36,7 +38,7 @@ ecomm_frow2 = fluidRow(
     width = 12,
     box(
       width = 12,
-      title = "Revenue - eComm vs Retail",
+      title = "YOY Growth Rates",
       status = "success",
       solidHeader = FALSE,
       plotlyOutput("ecom_pctGrowth", height = "600px")
@@ -50,7 +52,7 @@ ret_frow_top1 = fluidRow(
     width = 12,
     column(
       width = 3,
-      selectizeInput("period_selected", "Data Frequency", period_disp, selected = period_disp[1])
+      selectizeInput("period_selected", "Data Frequency", period_disp, selected = period_disp[3])
     ),
     
     column(
@@ -111,7 +113,7 @@ ret_frow1 = fluidRow(
       status = "success",
       color = "olive",
       solidHeader = FALSE,
-      plotlyOutput("ret_plot1")
+      plotlyOutput("ret_plot1",height = "300px")
     )
   )
 )
@@ -244,25 +246,47 @@ cat_frow1 = fluidRow(
   )
 )
 
-cat_frow_topx = fluidRow(
+cat_frow2 = fluidRow( 
   column(
     width = 12,
     box(
-      width = 12,
-      title = NULL,
-      status = NULL,
-      solidHeader = FALSE,
-      valueBoxOutput("value1"),
-      valueBoxOutput("value2"),
-      valueBoxOutput("value3")
+      width = 6,
+      title = "Seasonality in Sales",
+      status = "success",
+      solidHeader = TRUE,
+      collapsible = TRUE, 
+      plotlyOutput("seasonality_plot1")
+    ),
+    box(
+      width = 6,
+      title = "Seasonality in Inventory",
+      status = "success",
+      solidHeader = TRUE,
+      collapsible = TRUE,
+      plotlyOutput("seasonality_plot2")
     )
   )
 )
 
+# cat_frow_topx = fluidRow(
+#   column(
+#     width = 12,
+#     box(
+#       width = 12,
+#       title = NULL,
+#       status = NULL,
+#       solidHeader = FALSE,
+#       valueBoxOutput("value1"),
+#       valueBoxOutput("value2"),
+#       valueBoxOutput("value3")
+#     )
+#   )
+# )
+
 # Bild pages ####   
 ecomm_tabs =  fluidRow(ecomm_frow_top, ecomm_frow1, ecomm_frow2 )
 ret_tabs =  fluidRow(ret_frow_top1, ret_frow_top2, ret_frow1, ret_frow2, ret_frow3, ret_frow4)
-cat_tabs =  fluidRow(cat_frow_top1, cat_frow_top2, br(), br(), cat_frow1)
+cat_tabs =  fluidRow(cat_frow_top1, cat_frow_top2, br(), br(), cat_frow1, cat_frow2)
 
 dboard_header = dashboardHeader(title = "US Retail Sales Data Analyis")
 dboard_sidebar = dashboardSidebar(
@@ -270,7 +294,11 @@ dboard_sidebar = dashboardSidebar(
     # menuItem(tabName = "Home", text = "Home", icon = icon("home", lib="glyphicon")),
     menuItem(tabName = "RetailOverall", text = "Retail Overall", icon = icon("stats", lib="glyphicon")),
     menuItem(tabName = "SubSectorAnalysis", text ="Sub Sector Analysis", icon = icon("tag", lib="glyphicon")),
-    menuItem(tabName = "eCommerce", text ="eCommerce", icon = icon("phone", lib="glyphicon"))
+    menuItem(tabName = "eCommerce", text ="eCommerce", icon = icon("phone", lib="glyphicon")),
+    br(),
+    br(),
+    menuItem(tabName = "About", text ="About", icon = icon("info"))
+    
   )
 )
 
@@ -282,7 +310,7 @@ dboard_body2 = dashboardBody(
     tabItem(tabName = "eCommerce",ecomm_tabs)
   )
 )
-db_page = dashboardPage(dboard_header, dboard_sidebar, dboard_body2)
+db_page = dashboardPage(dboard_header, dboard_sidebar, dboard_body2,skin = "green")
 
 shinyUI(db_page)
 
