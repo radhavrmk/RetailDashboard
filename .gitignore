@@ -3,3 +3,4 @@
 *.dcf
 **/mlspartan/*
 rsconnect/*
+*.DS_Store
