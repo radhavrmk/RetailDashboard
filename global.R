@@ -1,4 +1,4 @@
-library(shiny)
+# library(shiny)
 # library(semantic.dashboard)
 # library(shinydashboard)
 
@@ -9,8 +9,10 @@ library(scales)
 library(dplyr)
 library(plotly)
 library(treemap)
+library(RColorBrewer)
 
-setwd("/Users/RV/Documents/Radha/OneDrive - Cognizant/Personal/Learn/DataScience/NYC/classes/handson/Projects/RetailTrendsShiney/RetailSales")
+
+# setwd("/Users/RV/Documents/Radha/OneDrive - Cognizant/Personal/Learn/DataScience/NYC/classes/handson/Projects/RetailTrendsShiney/RetailSales")
 
 data_df = read.csv("./data/raw/MRTS-mf-data.csv", stringsAsFactors = FALSE)
 category_df = read.csv("./data/raw/MRTS-mf-data-category.csv", stringsAsFactors = FALSE)
@@ -31,10 +33,6 @@ ecomm_raw_df = ecomm_raw_df %>%
           mutate(date = as_date(parse_date_time(ecomm_raw_df$date, orders=date_frmts))) %>%
           mutate(cat_desc = "E-commerce Retail Sales")
 
-
-
-
-
 cleanDescription = function(original, remove_strings){
   for (i in remove_strings){
     clean = str_remove(original, i)
@@ -54,6 +52,23 @@ df = data_df %>%
   mutate(temp = paste0(cat_code,": ")) %>%
   # mutate(cat_desc2 = map2_chr(cat_desc, pattern=temp, gsub, replacement = "")  )
   mutate(cat_desc2 = trimws(str_remove(cat_desc, remove_strings)))
+
+find_last_full_quarter = function(df){
+  max_date = max(df$date)
+  last_full_Q_date = max_date
+  month_to_check = month(max_date)
+  if(month_to_check %in% c(1,4,7,10)) {
+    last_full_Q_date = max_date %m+% months(-1) 
+  }else if (month_to_check %in% c(2,5,8,11)) {
+    last_full_Q_date = max_date %m+% months(-1)
+  }else  last_full_Q_date = max_date
+  return(last_full_Q_date)
+}
+
+last_full_Q_date = find_last_full_quarter(df)
+df = filter(df, date <= last_full_Q_date)
+
+
 
 ecomm_df = df %>% 
   filter(dt_code == "SM", cat_code == "44000", is_adj == 1) %>%
@@ -88,6 +103,12 @@ data_type = "SA"
 current_year = 2017
 current_quarter = 4
 
+
+
+
+
+
+
 years_disp = unique(df$year)
 quarters_disp = 1:4
 months_disp = 1:12
@@ -95,40 +116,43 @@ period_disp = c("Yearly"="year", "Quarterly"="quarter", "Monthly" = "month")
 
 df3 = df %>% 
   filter(et_idx == 0, !is.na(value)) %>%
-  filter(! cat_code %in% exclude_categories, !cat_code %in% master_categories) %>%
+  filter(! cat_code %in% exclude_categories) %>%
   filter(! dt_unit %in% exclude_types) %>%
-  # filter(cat_code == "44811") %>%
-  # filter(dt_code == "SM", is_adj==1) %>%
-  # filter(dt_code == "SM") %>%
   select(-ends_with("_idx")) %>% 
-  arrange(date, cat_code)
+  arrange(date, cat_desc2)
 
-df32 = df %>% 
-  filter(et_idx == 0, !is.na(value)) %>%
-  filter(! cat_code %in% exclude_categories, !cat_code %in% master_categories) %>%
-  filter(! dt_unit %in% exclude_types) %>%
-  # filter(cat_code == "44811") %>%
-  # filter(dt_code == "SM", is_adj==1) %>%
-  select(-ends_with("_idx")) %>% 
-  arrange(date, cat_code)
+subsec_df = df3 %>% filter(is_adj==1) %>%
+  filter(! cat_code %in% master_categories) %>%
+  select(cat_code, cat_desc2) %>% 
+  arrange(cat_desc2) %>%
+  distinct()
 
-# df2 = df %>% filter(et_idx != 0) 
-# df2 = df %>% filter(is.na(value)) 
+subsec_list = subsec_df$cat_desc2
 
-
-
-applyFilters = function(df, min_date=NULL, max_date=NULL, SA=TRUE, data_type = "SM"){
+applyFilters = function(df, min_date=NULL, max_date=NULL, SA=TRUE, data_type = "SM", master_cats = TRUE, sector = NULL){
   
   df = filter(df, is_adj == SA)
+  if(master_cats) df = filter(df, cat_code %in% master_categories) 
+    else df = filter(df, !cat_code %in% master_categories)
   if(data_type != "ALL") df = filter(df, dt_code==data_type)
   if (!is.null(min_date)) df = filter(df, year>=min_date)
   if (!is.null(max_date)) df = filter(df, year<=max_date)
+  if (!is.null(sector)) df = filter(df, cat_desc2 == sector)
   return(df)
 }
 
-applyRollups = function(df, sub_sec = FALSE, period = "month", YoY = FALSE, func=sum) {
-  
+# xx= applyFilters(df3,min_date = 2000, max_date = 2001, 
+#                 master_cats = FALSE)
+# 
+# yy = xx %>% filter(cat_desc2 == "Used Merchandise Stores")
+# 
+# zz = df3 %>% filter(cat_desc2 == "Used Merchandise Stores")
+# 
 
+      
+
+applyRollups = function(df, sub_sec = FALSE, period = "month", YoY = TRUE, func=sum) {
+  
   group_cols = c("is_adj")
 
   if (sub_sec) group_cols = append(group_cols, "sub_sec") 
@@ -156,61 +180,154 @@ applyRollups = function(df, sub_sec = FALSE, period = "month", YoY = FALSE, func
   return(df)
 }
 
-df4 = applyFilters(df3, min_date = 1993, max_date = 2018)
+df4 = applyFilters(df3, min_date = 1993, max_date = 2018, master_cats = FALSE)
 
-df5 = applyRollups(df4, period = "quarter")
-df6 = applyRollups(df4, period = "quarter", YoY=TRUE)
+df4 = applyFilters(df3, min_date = global_max_year -3, max_date = global_max_year, master_cats = FALSE)
+df5 = applyRollups(df4, period = "month", YoY = TRUE)
+last_12mth_ret_sales = df5 %>% group_by(cat_desc2) %>%
+    top_n(12, wt=date) %>%
+    summarise(total_value = sum(value), avg_growth = mean(pct_diff))
+
+df4 = applyFilters(df3, min_date = global_max_year -3, max_date = global_max_year, master_cats = FALSE,data_type = "IM")
+df5 = applyRollups(df4, period = "month", YoY = TRUE)
+last_12mth_ret_inv = df5 %>% group_by(cat_desc2) %>%
+  top_n(12, wt=date) %>%
+  summarise(avg_value = mean(value), avg_growth = mean(pct_diff))
+
+xx = df3 %>% filter(cat_desc2 == "Food and Beverage Stores", is_adj==0, dt_code=="SM") %>%
+    select(date, value) %>% 
+    mutate(xval = (year(date)-1992)*12 + month(date))
+
+linearModel = loess(value~xval,na.omit(xx))           
+
+summary(linearModel)
+coeffx = linearModel$coefficients
+res = linearModel$residuals
+res2 = residuals(linearModel)
+
+all.equal(res,res2)
+
+xx %>% select(date, value) 
+
+xx%>%    ggplot(aes(x= xval, y = value)) + geom_point(color="red") +
+    geom_smooth(method = "loess", color = "blue")
+
+yy = cbind(xx,res=res)
+yy %>% 
+  ggplot(aes(x= xval, y = value)) + geom_point(color="red") + 
+  geom_smooth(method = "loess", color = "blue") +
+  geom_point(aes(x=xval, y =value+res ), color = "green")
+
+yy %>% group_by(month(date))
+
+yy %>% ggplot(aes(x=as.factor(month(date)), y = res)) + geom_boxplot(position=position_dodge(0.75))
+plot(res)
+
+
+
+df6 = applyRollups(df4, period = "month", YoY=TRUE)
 df7 = applyRollups(df4, period = "year", YoY=TRUE)
 df8 = applyRollups(df4, period = "year", YoY=TRUE)
 
 df5 = na.omit(df5)
 
 
-xx = df6 %>% 
-  group_by(year, quarter) %>%
-  filter(rank(desc(value)) < 5) %>%
-  filter(year==2014)
+upd_df = applyFilters(df3,min_date = global_min_year, max_date = global_max_year,  master_cats = FALSE)
+
+upd_df = applyRollups(upd_df, period = "year", YoY = TRUE)
+
+upd_df = upd_df %>% filter(year(date) == current_year) %>%
+          mutate(value = value/1e3, pct_diff = pct_diff/1e2)
+upd_df = na.omit(upd_df)
+
+median_value = median(upd_df$value)
+median_growth = median(upd_df$pct_diff)
+
+g = ggplot(upd_df, aes(x=value, y = pct_diff, label=cat_desc2)) + geom_point(size=2, color = "tomato") + 
+  # geom_text(aes(label=ifelse((pct_diff>median_growth & value > median_value),cat_desc2,""),hjust=0,vjust=0, size = 2, nudge_y = 0.5 ))+
+  # geom_label()+  
+  geom_hline(yintercept = median_growth, color="orange")+
+  geom_vline(xintercept =  median_value, color="orange")+
+  theme(legend.position = "null") +
+  scale_y_continuous(labels = percent) + 
+  scale_x_continuous(labels = comma) 
+g
+ggplotly(g)
 
 
-get_top_n = function(df, n){
-  top_five = df %>%
-    group_by(.,date) %>%
-    top_n(.,n,wt = value) 
+## Get Top n categories
+get_top_n = function(df, number_needed=5, data_type = "value"){
+
+  if (data_type == "value"){
+    top_five = df %>%
+    group_by(date) %>%
+    top_n(n=number_needed, wt = value) %>%
+    ungroup()
+  } else{
+    top_five = df %>%
+      group_by(date) %>%
+      top_n(n=number_needed, wt = pct_diff) %>%
+      ungroup()
+  }  
+  
   return(top_five)
 }
 
-bottom_five = df5 %>%
-  mutate(period = paste0(as.character(year), "-" , as.character(quarter))) %>%
-  group_by(period,quarter) %>%
-  top_n(-5,wt = value) 
 
 
+
+
+
+xx = df8 %>% group_by(date) %>% top_n(5, wt = value) %>% ungroup()
+yy = df8 %>% group_by(date) %>% top_n(-5, wt = value) %>% ungroup()
+
+
+xx2 = get_top_n(df8, number_needed = 5, data_type = "value")
+
+yy = get_top_n(df8, -5, data_type = "value")
+
+all.equal(xx,yy)
 
 build_primary_plot = function(df_upd, type_of_data, xlabel = "", ylabel="", title=""){
   
-  message("before", dim(df_upd))
-  df_upd = na.omit(df_upd)
-  message("after", dim(df_upd))
-  g1 = df_upd  %>%
+  df_upd = na.omit(df_upd) 
+  if(type_of_data == "value") df_upd$value =  df_upd$value/1e3
+  else if (type_of_data == "pct_diff") df_upd$pct_diff =  df_upd$pct_diff/1e2
+  
+  g = df_upd  %>%
     ggplot(aes(x=date, y=df_upd[[type_of_data]], color=cat_desc2)) +
     geom_line(na.rm = TRUE) +
     scale_x_date(breaks = date_breaks("1 year"), labels = date_format("%Y")) +
     theme(axis.text.x = element_text(angle = 90, hjust = 1))+
     labs(x=xlabel, y =ylabel, title = title ) +
-    theme(legend.position = 'none')
-  return(g1)
+    theme(legend.text = element_text(colour="blue", size=7), legend.position="bottom") 
+  
+  if (type_of_data == "value") g = g + scale_y_continuous(labels = comma) 
+  else if (type_of_data == "pct_diff") g = g + scale_y_continuous(labels = percent) 
+  #   labs(x = "", y = "Quarterly Sales(in $bln)")   
+  return(g)
 }
 
-build_top5_plot = function(top_five ){
-  g = top_five %>% ggplot(aes(x=date, y=value, fill=cat_desc2)) +
+build_top5_plot = function(top_five, type_of_data="value", xlabel = "", ylabel="", title="" ){
+  
+  top_five = na.omit(top_five) 
+  if(type_of_data == "value") top_five$value =  top_five$value/1e3
+  else if (type_of_data == "pct_diff") top_five$pct_diff =  top_five$pct_diff/1e2
+  
+  g = top_five %>% ggplot(aes(x=date, y=top_five[[type_of_data]], fill=cat_desc2)) +
     geom_bar(stat = "identity") +
     theme(axis.text.x = element_text(angle = 90, hjust = 1))+
-    theme(legend.position = 'none')
+    labs(x=xlabel, y =ylabel, title = title ) +
+    theme(legend.text = element_text(colour="blue", size=7), legend.position="none") 
+  
+  if (type_of_data == "value") g = g + scale_y_continuous(labels = comma) 
+  else if (type_of_data == "pct_diff") g = g + scale_y_continuous(labels = percent) 
+  
   return(g)
 }
 
 
-df4 = applyFilters(df3, min_date = 1993, max_date = 2018, data_type = "SM")
+df4 = applyFilters(df3, min_date = 1993, max_date = 2018, data_type = "SM", master_cats = FALSE)
 
 df8 = applyRollups(df4, period = "month", YoY=TRUE)
 
@@ -232,23 +349,31 @@ g1
 
 xx %>% select(date, pct_diff) %>%
   ggplot()
+# 
+# df4 = applyFilters(df3, min_date = global_min_year, max_date = global_max_year, data_type = "SM", master_cats = FALSE)
+# df8 = applyRollups(df4, period = "month", YoY=TRUE)
+# 
+# last_12mon_sales_YOY = df8 %>% 
+#         arrange(desc(date)) %>% 
+#         group_by(cat_desc2) %>%
+#         top_n(12, wt=date) %>%
+#         summarise(mean_sales = mean(value), mean_growth = mean(pct_diff))
+# 
+# df8 = applyRollups(df4, period = "month", YoY=FALSE)
+# 
+# last_12mon_sales = df8 %>% 
+#   arrange(desc(date)) %>% 
+#   group_by(cat_desc2) %>%
+#   top_n(12, wt=date) %>%
+#   summarise(mean_sales = mean(value), mean_growth = mean(pct_diff))
 
-df4 = applyFilters(df3, min_date = global_min_year, max_date = global_max_year, data_type = "SM")
-df8 = applyRollups(df4, period = "month", YoY=TRUE)
 
-last_12mon_sales_YOY = df8 %>% 
-        arrange(desc(date)) %>% 
-        group_by(cat_desc2) %>%
-        top_n(12, wt=date) %>%
-        summarise(mean_sales = mean(value), mean_growth = mean(pct_diff))
 
-df8 = applyRollups(df4, period = "month", YoY=FALSE)
+# eComm plots ####
 
-last_12mon_sales = df8 %>% 
-  arrange(desc(date)) %>% 
-  group_by(cat_desc2) %>%
-  top_n(12, wt=date) %>%
-  summarise(mean_sales = mean(value), mean_growth = mean(pct_diff))
+ecomm_stats = ecomm_df %>% group_by(cat_desc) %>%
+    top_n(4, wt=date) %>%
+    summarise(total_value = sum(value), avg_growth = mean(pct_diff))
 
 geteComVsRetailSales = function(){
   ecomm_df %>% ggplot(aes(x=date, y = value/1e3, color = cat_desc)) +
@@ -256,15 +381,15 @@ geteComVsRetailSales = function(){
     theme(legend.text = element_text(colour="blue", size=7), legend.position="bottom") +
     theme(axis.text.y = element_text(angle = 90, hjust = 1))+
     scale_y_continuous(labels = comma) + 
-    labs(x = "", y = "Quarterly Sales($mln)") 
+    labs(x = "", y = "Quarterly Sales(in $bln)") 
 }
 geteComVsRetailSales()
 
 getEcommPctSales = function(){
-  ecomm_raw_df %>% ggplot(aes(x = date, y = pct_of_retail)) +
+  ecomm_raw_df %>% ggplot(aes(x = date, y = pct_of_retail/100)) +
     geom_bar(stat = "identity", fill = "tomato") +
     theme(axis.text.y = element_text(angle = 90, hjust = 1)) +
-    scale_y_continuous(labels = comma) +
+    scale_y_continuous(labels = percent) +
     labs(x = "", y = "Percent of Retail")
 }
 
@@ -283,14 +408,6 @@ getEcomYOYGrowth = function(){
 }
 getEcomYOYGrowth()
 
-# ecomm_df %>% ggplot(aes(x=date, y = value, color = cat_desc)) +
-#   geom_line() +  
-#   theme(legend.text = element_text(colour="blue", size=7), legend.position="bottom") +
-#   scale_y_continuous(labels = comma)
-
-# x= ecomm_df$date[ecomm_df$cat_desc == "E-commerce Retail Sales"]
-# y =ecomm_df$pct_diff[ecomm_df$cat_desc == "E-commerce Retail Sales"]
-# xy = data.frame(x=x, y = y)
 
 ecomm_df %>% ggplot(aes(x=date, y = pct_diff, fill = cat_desc)) +
   geom_bar(stat = "identity", position = "dodge") +
@@ -298,7 +415,7 @@ ecomm_df %>% ggplot(aes(x=date, y = pct_diff, fill = cat_desc)) +
   # geom_smooth(data = xy, se=FALSE, method = lm, formula = y~x, aes( color = "green" )) +
   geom_hline(yintercept = 0, color="black") +
   theme_bw()
-
+# ####
 
 # 
 # build_tree = function(df){
@@ -427,3 +544,9 @@ ecomm_df %>% ggplot(aes(x=date, y = pct_diff, fill = cat_desc)) +
 #   scale_x_date(breaks = date_breaks("1 year"), labels = date_format("%Y")) +
 #   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 # ggplotly(g)
+
+
+# bottom_five = df5 %>%
+#   mutate(period = paste0(as.character(year), "-" , as.character(quarter))) %>%
+#   group_by(period,quarter) %>%
+#   top_n(-5,wt = value) 

@@ -1,3 +1,6 @@
+library(shiny)
+library(shinydashboard)
+library(RColorBrewer)
 
 # Define server logic required to draw a histogram
 
@@ -6,11 +9,19 @@ shinyServer(function(input, output, session) {
   min_year <- reactive({
     input$from_year
   })
+  
+  min_year2 <- reactive({
+    input$from_year2
+  })
 
   max_year <- reactive({
     input$to_year
   })
 
+  max_year2 <- reactive({
+    input$to_year2
+  })
+  
   sea_adjusted_flag <- reactive({
     as.integer(input$sea_adj)
   })
@@ -19,13 +30,39 @@ shinyServer(function(input, output, session) {
     input$sales_inv
   })
 
+  sales_inventory_flag2 = reactive({
+    input$sales_inv2
+  })
+
   period_selected = reactive({
     input$period_selected
   })
+  
+  period_selected2 = reactive({
+    input$period_selected2
+  })
 
+  sector_selected = reactive({
+    print("in reactive")
+    print(input$category_selected)
+    input$category_selected
+  })
+  
+  cat_stats = reactive({
+    df1 = filter(last_12mth_ret_sales, cat_desc2 == input$category_selected)
+    df2 = filter(last_12mth_ret_inv, cat_desc2 == input$category_selected)
+    c(df1$total_value, df1$avg_growth, df2$avg_value, df2$avg_growth)
+  })
+  
   growth_flag = reactive({
     if(input$act_pct == "actuals") x = "value"
     if(input$act_pct == "growth") x = "pct_diff"
+    x
+  })
+  
+  growth_flag2 = reactive({
+    if(input$act_pct2 == "actuals") x = "value"
+    if(input$act_pct2 == "growth") x = "pct_diff"
     x
   })
 
@@ -36,70 +73,87 @@ shinyServer(function(input, output, session) {
 
   })
 
-  # colscale <- c(semantic_palette[["red"]], semantic_palette[["green"]], semantic_palette[["blue"]])
-  
   output$ret_plot1 <- renderPlotly({
+    ylable_text = paste0(ifelse(sales_inventory_flag()=="SM", "Sales ", "Inventory "),
+                         ifelse(growth_flag() == "value", "(in $bln)", "Growth Percent")
+                         )
+      
     upd_df = applyFilters(df3,min_date = min_year(), max_date = max_year(), 
                           SA=sea_adjusted_flag(), data_type = sales_inventory_flag() )
-    print(dim(upd_df))
     upd_df = applyRollups(upd_df, period = period_selected())
-    print(dim(upd_df))
-    g = build_primary_plot(upd_df, growth_flag(), xlabel = "Year" )
-    # ggplotly(g + scale_colour_manual(values = colscale))
-    ggplotly(g) 
+    g = build_primary_plot(upd_df, growth_flag(), xlabel = "", ylabel = ylable_text )
+    ggplotly(g) %>% layout(legend = list(orientation = "h", x = 0.4, y =-0.2))
     
   })
 
+  output$cat_plot1 <- renderPlotly({
+    ylable_text = paste0(ifelse(sales_inventory_flag2()=="SM", "Sales ", "Inventory "),
+                         ifelse(growth_flag2() == "value", "(in $bln)", "Growth Percent")
+                         )
+    print(sector_selected())
+    upd_df = applyFilters(df3,min_date = min_year2(), max_date = max_year2(), 
+                          data_type = sales_inventory_flag2(), 
+                          master_cats = FALSE, sector = sector_selected())
+    upd_df = applyRollups(upd_df, period = period_selected2())
+    g = build_primary_plot(upd_df, growth_flag2(), xlabel = "", ylabel = ylable_text )
+    ggplotly(g) %>% layout(legend = list(orientation = "h", x = 0.4, y =-0.2))
+    
+  })
+  
   output$top5_plot1 <- renderPlotly({
     upd_df = applyFilters(df3,min_date = min_year(), max_date = max_year(),
-                          SA=sea_adjusted_flag(), data_type = sales_inventory_flag() )
+                          SA=sea_adjusted_flag(), data_type = sales_inventory_flag(),  master_cats = FALSE )
     upd_df = applyRollups(upd_df, period = period_selected())
-    upd_df = get_top_n(upd_df, 5)
+    upd_df = get_top_n(upd_df, 5, growth_flag())
     
-    g = build_top5_plot(upd_df )
-    ggplotly(g)
+    g = build_top5_plot(upd_df, xlabel = "" ) + scale_fill_brewer(palette = "Paired")
+
+    ggplotly(g) #%>% layout(legend = list(orientation = "h", x = 1, y =-0.2))
   })
   
   output$bottom5_plot1 <- renderPlotly({
     upd_df = applyFilters(df3,min_date = min_year(), max_date = max_year(),
-                          SA=sea_adjusted_flag(), data_type = sales_inventory_flag() )
+                          SA=sea_adjusted_flag(), data_type = sales_inventory_flag(),master_cats = FALSE )
     upd_df = applyRollups(upd_df, period = period_selected())
-    upd_df = get_top_n(upd_df, -5)
+    upd_df = get_top_n(upd_df, -5, growth_flag())
     
-    g = build_top5_plot(upd_df )
-    ggplotly(g)
+    g = build_top5_plot(upd_df, xlabel = "" ) + scale_fill_brewer(palette = "Paired")
+    ggplotly(g) %>% layout(legend = list(orientation = "h", x = 0.4, y =-0.2))
   })
   
   output$tree_plot1 <- renderPlot({
     upd_df = applyFilters(df3,min_date = min_year(), max_date = max_year(),
-                          SA=sea_adjusted_flag(), data_type = sales_inventory_flag() )
+                          SA=sea_adjusted_flag(), data_type = sales_inventory_flag(), master_cats = FALSE )
     upd_df = applyRollups(upd_df, period = period_selected())
 
-    g = treemap(upd_df,index = "cat_desc2", vSize = "value")
+    g = treemap(upd_df,index = "cat_desc2", vSize = "value",title = "") + scale_fill_brewer(palette = "Set3")
     g
   })
   
-  output$point_plot1 <- renderPlotly({
-    print(min_year)
-    print(max_year)
+  output$salesgrwoth_leader_plot1 <- renderPlotly({
+
+    upd_df = applyFilters(df3,min_date = global_min_year, max_date = global_max_year,  master_cats = FALSE)
     
-    upd_df = applyFilters(df3,min_date = global_min_year, max_date = global_max_year)
-
     upd_df = applyRollups(upd_df, period = "year", YoY = TRUE)
-
-    upd_df = filter(upd_df, year(date) == current_year)
+    
+    upd_df = upd_df %>% filter(year(date) == current_year) %>%
+      mutate(value = value/1e3, pct_diff = pct_diff/1e2)
+    upd_df = na.omit(upd_df)
+    
     median_value = median(upd_df$value)
     median_growth = median(upd_df$pct_diff)
- 
+    
+    
     g = ggplot(upd_df, aes(x=value, y = pct_diff, label=cat_desc2)) + geom_point(size=2, color = "tomato") + 
-      # geom_label_repel(aes(label = ifelse(pct_diff>=5,cat_desc2,"")),
-      #                  box.padding   = 0.35, point.padding = 0.5, segment.color = 'grey50') +
-      geom_text(aes(label=ifelse((pct_diff>median_growth & value > median_value),cat_desc2,''))
-                ,hjust=0,vjust=1, size = 2, nudge_y = 0.5 )+
-
+      # geom_text(aes(label=ifelse((pct_diff>median_growth & value > median_value),cat_desc2,""),hjust=0,vjust=0, size = 2, nudge_y = 0.5 ))+
+      # geom_label()+  
       geom_hline(yintercept = median_growth, color="orange")+
       geom_vline(xintercept =  median_value, color="orange")+
-      theme(legend.position = "null") 
+      theme(legend.position = "null") +
+      scale_y_continuous(labels = percent) + 
+      scale_x_continuous(labels = comma) +
+      labs(x = "Sales (in $bln)", y = "Growth")
+    
     ggplotly(g)
   })
 
@@ -131,7 +185,7 @@ shinyServer(function(input, output, session) {
   })
   
   output$ecom_sales <- renderPlotly({
-    g = geteComVsRetailSales()
+    g = geteComVsRetailSales() 
     ggplotly(g) %>% 
       layout(legend = list(orientation = "h", x = 0.4, y =-0.1))
   })
@@ -148,37 +202,78 @@ shinyServer(function(input, output, session) {
     ggplotly(g) %>% 
       layout(legend = list(orientation = "h", x = 0.4, y =-0.1))
   })
-  
-  output$value2 <- renderValueBox({
+
+  output$ecom_value1 <- renderValueBox({
+    value = ecomm_stats[ecomm_stats$cat_desc == "E-commerce Retail Sales",]$total_value
+    value = paste0("$", round(value/1000,1), " bln")
     valueBox(
-      value = formatC(20000, format = "d", big.mark = ','),
-      subtitle = 'Total Expected Revenue',
-      icon = icon("line chart"),
+      value = formatC(value, format = "d", big.mark = ','),
+      subtitle = 'Last 4 Quarter Sales',
       color = "black",
-      width = 5)
-  })
-  output$value3 <- renderValueBox({
+      width = 4)
+  })    
+  output$ecom_value2 <- renderValueBox({
+    value = ecomm_stats[ecomm_stats$cat_desc == "E-commerce Retail Sales",]$avg_growth
+    value = paste0(round(value,2),"%")
     valueBox(
-      "80%", "Approval", icon = icon("thumbs-up", lib = "glyphicon"),
-      color = "yellow"
-    )
+      value = formatC(value, format = "d", big.mark = ','),
+      subtitle = 'Avg Growth - last 4 quarters',
+      # icon = icon("line chart"),
+      color = "black",
+      width = 4)
+  })
+  output$ecom_value3 <- renderValueBox({
+    value = ecomm_stats[ecomm_stats$cat_desc == "Retail Trade",]$total_value
+    value = paste0("$", round(value/1000,1), " bln")
+    valueBox(
+      value = formatC(value, format = "d", big.mark = ','),
+      subtitle = 'Retail sales(includes Auto)',
+      # icon = icon("line chart"),
+      color = "black",
+      width = 4)
+  })
+
+  output$cat_value1 <- renderValueBox({
+    value = cat_stats()[1]
+    value = paste0("$", round(value/1000,1), " bln")
+    
+    valueBox(
+      value = formatC(value, format = "d", big.mark = ','),
+      subtitle = 'Sales - last 12M',
+      color = "black")
+  })
+  
+  output$cat_value2 <- renderValueBox({
+    value = cat_stats()[2]
+    value = paste0(round(value,2),"%")
+    
+    valueBox(
+      value = formatC(value, format = "d", big.mark = ','),
+      subtitle = 'YoY Sales Growth',
+      color = "black")
+  })
+  
+  output$cat_value3 <- renderValueBox({
+    value = cat_stats()[3]
+    if (!is.na(value)) value = paste0("$", round(value/1000,1), " bln")
+    
+    
+    valueBox(
+      value = formatC(cat_stats()[3], format = "d", big.mark = ','),
+      subtitle = 'Avg Inventory - last 12M',
+      color = "black")
+  })
+  
+  output$cat_value4 <- renderValueBox({
+    value = cat_stats()[4]
+    if (!is.na(value)) value = paste0(round(value,2),"%")
+    
+    valueBox(
+      value = formatC(value, format = "d", big.mark = ','),
+      subtitle = 'YoY Inventory Growth',
+      color = "black")
   })
   
 })
 
 
-# output$boxplot1 <- renderPlotly({
-#   ggplotly(ggplot(mtcars, aes(x = as.factor(am), y = mpg)) +
-#              geom_boxplot(fill = semantic_palette[["green"]]) + 
-#              xlab("gearbox") + ylab("Miles per gallon"))
-# })
-# 
-# output$dotplot1 <- renderPlotly({
-#   ggplotly(ggplot(mtcars, aes(wt, mpg))
-#            + geom_point(aes(colour=factor(cyl), size = qsec))
-#            + scale_colour_manual(values = colscale)
-#   )
-# })
-# 
-# output$carstable <- DT::renderDataTable(mtcars)
-# 
