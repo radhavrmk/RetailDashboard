@@ -128,10 +128,7 @@ shinyServer(function(input, output, session) {
   })
   
   output$tree_plot1 <- renderPlot({
-    # upd_df = applyFilters(df3,min_date = min_year(), max_date = max_year(),
-    #                       SA=sea_adjusted_flag(), data_type = sales_inventory_flag(), master_cats = FALSE )
-    upd_df = applyRollups(retail_page_df2(), period = period_selected())
-    g = treemap(upd_df,index = "Sector", vSize = "value",
+    g = treemap(retail_page_df2(),index = "Sector", vSize = "value",
                 title = "", palette="Set3")
   })
   

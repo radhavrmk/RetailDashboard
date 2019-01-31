@@ -269,6 +269,14 @@ cat_frow2 = fluidRow(
   )
 )
 
+home_frow = fluidRow(
+  column(width = 1),
+  column(width = 10,
+         includeMarkdown("./intro.md")),
+  column(width = 1)
+)
+
+
 # cat_frow_topx = fluidRow(
 #   column(
 #     width = 12,
@@ -288,24 +296,23 @@ cat_frow2 = fluidRow(
 ecomm_tabs =  fluidRow(ecomm_frow_top, ecomm_frow1, ecomm_frow2 )
 ret_tabs =  fluidRow(ret_frow_top1, ret_frow_top2, ret_frow1, ret_frow2, ret_frow3, ret_frow4)
 cat_tabs =  fluidRow(cat_frow_top1, cat_frow_top2, br(), br(), cat_frow1, cat_frow2)
+home_tabs =  fluidRow(home_frow)
+
 
 dboard_header = dashboardHeader(title = "US Retail Sales Data Analyis")
 dboard_sidebar = dashboardSidebar(
   sidebarMenu(
-    # menuItem(tabName = "Home", text = "Home", icon = icon("home", lib="glyphicon")),
+    menuItem(tabName = "Home", text = "Home", icon = icon("home", lib="glyphicon")),
     menuItem(tabName = "RetailOverall", text = "Retail Overall", icon = icon("stats", lib="glyphicon")),
     menuItem(tabName = "SubSectorAnalysis", text ="Sub Sector Analysis", icon = icon("tag", lib="glyphicon")),
-    menuItem(tabName = "eCommerce", text ="eCommerce", icon = icon("phone", lib="glyphicon")),
-    br(),
-    br(),
-    menuItem(tabName = "About", text ="About", icon = icon("info"))
-    
+    menuItem(tabName = "eCommerce", text ="eCommerce", icon = icon("phone", lib="glyphicon"))
   )
 )
 
 
 dboard_body2 = dashboardBody(
   tabItems(
+    tabItem(tabName = "Home",home_tabs),
     tabItem(tabName = "RetailOverall",ret_tabs),
     tabItem(tabName = "SubSectorAnalysis",cat_tabs),
     tabItem(tabName = "eCommerce",ecomm_tabs)
