@@ -61,7 +61,7 @@ loadPreprocessRetailData = function(){
       quarter = quarter(date)
     ) %>%
     mutate(temp = paste0(cat_code, ": ")) %>%
-    mutate(cat_desc2 = trimws(str_remove(cat_desc, remove_strings))) %>%
+    mutate(Sector = trimws(str_remove(cat_desc, remove_strings))) %>%
     select(-temp)
   
   last_full_Q_date = find_last_full_quarter(df)
@@ -76,7 +76,7 @@ loadEcommerceData = function(){
   df = read.csv("./data/raw/FRED_ecomm.csv", stringsAsFactors = FALSE)
   df = df %>%
     mutate(date = as_date(parse_date_time(df$date, orders=date_frmts))) %>%
-    mutate(cat_desc = "E-commerce Retail Sales")
+    mutate(Sector = "E-commerce Retail Sales")
   return(df)
 }
 
@@ -85,34 +85,34 @@ processEcommerceData = function(ecomm_raw_df, retail_df){
   
   ecomm_df = retail_df %>%
     filter(dt_code == "SM", cat_code == "44000", is_adj == 1) %>%
-    select(date, cat_desc = cat_desc2, value) %>%
+    select(date, Sector, value) %>%
     mutate(date = floor_date(date, "quarter")) %>%
-    group_by(date, cat_desc) %>%
+    group_by(date, Sector) %>%
     summarise(value = sum(value)) %>%
     ungroup() %>%
     filter(date %in% ecomm_raw_df$date) %>%
-    rbind(select(ecomm_raw_df, date, cat_desc, value)) %>%
-    spread(key = cat_desc, value = value) %>%
+    rbind(select(ecomm_raw_df, date, Sector, value)) %>%
+    spread(key = Sector, value = value) %>%
     mutate(`ex E-com Sales` = `Retail Trade` - `E-commerce Retail Sales`) %>%
     # mutate(`pct E-Comm sales` = `E-commerce Retail Sales` / `Retail Trade`) %>%
     # select(-`pct E-Comm sales`) %>%
     gather(
-      key = cat_desc,
+      key = Sector,
       value = value,
       `Retail Trade`,
       `E-commerce Retail Sales`,
       `ex E-com Sales`
     )
   
-  ecomm_df = ecomm_df %>% group_by(cat_desc) %>%
-    # arrange(cat_desc, date) %>%
-    mutate(pct_diff_inc = ((value - lag(value)) / value) * 100) %>%
+  ecomm_df = ecomm_df %>% group_by(Sector) %>%
+    # arrange(Sector, date) %>%
+    mutate(GrowthIncremental = ((value - lag(value)) / value) * 100) %>%
     ungroup()
   
   ecomm_df = ecomm_df %>%
     mutate(quarter = quarter(date)) %>%
-    group_by(quarter, cat_desc) %>%
-    mutate(pct_diff = ((value - lag(value)) / value) * 100) %>%
+    group_by(quarter, Sector) %>%
+    mutate(GrowthRate = ((value - lag(value)) / value) * 100) %>%
     left_join(ecomm_raw_df[, c("date", "pct_of_retail")], by = "date")
   
   return(ecomm_df)
@@ -124,18 +124,18 @@ cleanRetailData = function(df){
     filter(! cat_code %in% exclude_categories) %>%
     filter(! dt_unit %in% exclude_types) %>%
     select(-ends_with("_idx")) %>% 
-    arrange(date, cat_desc2)
+    arrange(date, Sector)
   return(df)
 }
 
 createSubSectorList = function(df){
   subsec_df = df %>% filter(is_adj == 1) %>%
     filter(!cat_code %in% master_categories) %>%
-    select(cat_code, cat_desc2) %>%
-    arrange(cat_desc2) %>%
+    select(cat_code, Sector) %>%
+    arrange(Sector) %>%
     distinct()
   
-  return(subsec_df$cat_desc2)
+  return(subsec_df$Sector)
 }
 
 # function to apply multiple filters on the dataframe ####
@@ -147,7 +147,7 @@ applyFilters = function(df, min_date=NULL, max_date=NULL, SA=TRUE, data_type = "
   if(data_type != "ALL") df = filter(df, dt_code==data_type)
   if (!is.null(min_date)) df = filter(df, year>=min_date)
   if (!is.null(max_date)) df = filter(df, year<=max_date)
-  if (!is.null(sector)) df = filter(df, cat_desc2 == sector)
+  if (!is.null(sector)) df = filter(df, Sector == sector)
   return(df)
 }
 
@@ -162,7 +162,7 @@ applyRollups = function(df, sub_sec = FALSE, period = "month", YoY = TRUE, func=
   if (sub_sec)
     group_cols = append(group_cols, "sub_sec")
   else
-    group_cols = append(group_cols, "cat_desc2")
+    group_cols = append(group_cols, "Sector")
   
   if (period == "year")
     group_cols = append(group_cols, period)
@@ -187,25 +187,25 @@ applyRollups = function(df, sub_sec = FALSE, period = "month", YoY = TRUE, func=
   if (!YoY)
     df = ungroup(df)
   
-  df = mutate(df, pct_diff = ((value - lag(value)) / lag(value)) * 100)
+  df = mutate(df, GrowthRate = ((value - lag(value)) / lag(value)) * 100)
   return(df)
 }
 
 calculate12MonthSales = function(df){
   df2 = applyFilters(df, min_date = global_max_year -3, max_date = global_max_year, master_cats = FALSE)
   df2 = applyRollups(df2, period = "month", YoY = TRUE)
-  df2 = df2 %>% group_by(cat_desc2) %>%
+  df2 = df2 %>% group_by(Sector) %>%
     top_n(12, wt=date) %>%
-    summarise(total_value = sum(value), avg_growth = mean(pct_diff))  
+    summarise(total_value = sum(value), avg_growth = mean(GrowthRate))  
   return(df2)
 }
 
 calculate12MonthInventory = function(df){
   df2 = applyFilters(df, min_date = global_max_year -3, max_date = global_max_year, master_cats = FALSE,data_type = "IM")
   df2 = applyRollups(df2, period = "month", YoY = TRUE)
-  df2 = df2 %>% group_by(cat_desc2) %>%
+  df2 = df2 %>% group_by(Sector) %>%
     top_n(12, wt=date) %>%
-    summarise(avg_value = mean(value), avg_growth = mean(pct_diff))
+    summarise(avg_value = mean(value), avg_growth = mean(GrowthRate))
   return(df2)
 }
 
@@ -218,10 +218,18 @@ get_top_n = function(df, number_needed=5, data_type = "value"){
   } else{
     top_five = df %>%
       group_by(date) %>%
-      top_n(n=number_needed, wt = pct_diff) %>%
+      top_n(n=number_needed, wt = GrowthRate) %>%
       ungroup()
   }  
   return(top_five)
+}
+
+build_growth_sales_leaders = function(){
+  df = applyFilters(df3,min_date = global_min_year, max_date = global_max_year,  master_cats = FALSE)
+  df = applyRollups(df, period = "year", YoY = TRUE)
+  df = df %>% filter(year(date) == current_year) %>%
+    mutate(Sales = value/1e3, GrowthRate = GrowthRate/1e2)
+  return(df)
 }
 
 # Loading ####
@@ -245,22 +253,24 @@ period_disp = c("Yearly"="year", "Quarterly"="quarter", "Monthly" = "month")
 
 last_12mth_ret_sales = calculate12MonthSales(df3)
 last_12mth_ret_inv = calculate12MonthInventory(df3)
-ecomm_stats = ecomm_df %>% group_by(cat_desc) %>%
+ecomm_stats = ecomm_df %>% group_by(Sector) %>%
   top_n(4, wt=date) %>%
-  summarise(total_value = sum(value), avg_growth = mean(pct_diff))
+  summarise(total_value = sum(value), avg_growth = mean(GrowthRate))
 
-nsa_cat_df = df3 %>% filter(is_adj==0) %>% select(cat_desc2, date, dt_code, value) %>%
+nsa_cat_df = df3 %>% filter(is_adj==0) %>% select(Sector, date, dt_code, value) %>%
   mutate(month_value = (year(date)-min(year(date)))*12 + month(date), month = as.factor(month(date)))
+
+sales_growth_leaders = build_growth_sales_leaders()
 
 
 build_primary_plot = function(df, type_of_data, xlabel = "", ylabel="", title=""){
   
   df = na.omit(df) 
   if(type_of_data == "value") df$value =  df$value/1e3
-  else if (type_of_data == "pct_diff") df$pct_diff =  df$pct_diff/1e2
+  else if (type_of_data == "GrowthRate") df$GrowthRate =  df$GrowthRate/1e2
 
-  df = df %>% select(Date = date, Value = ifelse(type_of_data == "value", "value", "pct_diff"), 
-                     Sector = cat_desc2, everything())
+  df = df %>% select(Date = date, Value = ifelse(type_of_data == "value", "value", "GrowthRate"), 
+                     Sector = Sector, everything())
   
   if(dim(df)[1] == 0) return(NULL)
     
@@ -276,16 +286,16 @@ build_primary_plot = function(df, type_of_data, xlabel = "", ylabel="", title=""
 
       
   if (type_of_data == "value") g = g + scale_y_continuous(labels = comma)
-  else if (type_of_data == "pct_diff") g = g + scale_y_continuous(labels = percent)
+  else if (type_of_data == "GrowthRate") g = g + scale_y_continuous(labels = percent)
   return(g)
 }
 
 build_top5_plot = function(top_five, type_of_data="value", xlabel = "", ylabel="", title="" ){
   
   if(dim(top_five)[1] == 0) return(NULL)
-  top_five = top_five %>% select(Date = date, Sector = cat_desc2, everything())
+  top_five = top_five %>% select(Date = date, everything())
   if(type_of_data == "value") top_five$Value =  top_five$value/1e3
-  else if (type_of_data == "pct_diff") top_five$Value =  top_five$pct_diff/1e2
+  else if (type_of_data == "GrowthRate") top_five$Value =  top_five$GrowthRate/1e2
   
   
   g = top_five %>% ggplot(aes(x=Date, y=Value, fill=Sector)) +
@@ -295,7 +305,7 @@ build_top5_plot = function(top_five, type_of_data="value", xlabel = "", ylabel="
     theme(legend.text = element_text(colour="blue", size=7), legend.position="none") 
 
   if (type_of_data == "value") g = g + scale_y_continuous(labels = comma) 
-  else if (type_of_data == "pct_diff") g = g + scale_y_continuous(labels = percent) 
+  else if (type_of_data == "GrowthRate") g = g + scale_y_continuous(labels = percent) 
   
   return(g)
 }
@@ -304,7 +314,7 @@ build_top5_plot = function(top_five, type_of_data="value", xlabel = "", ylabel="
 # build_top5_plot = function(top_five, type_of_data="value", xlabel = "", ylabel="", title="" ){
 #   
 #   top_five = na.omit(top_five)
-#   if(type_of_data == "value") top_five$value =  top_five$value/1e3 else top_five$value =  top_five$pct_diff/1e2
+#   if(type_of_data == "value") top_five$value =  top_five$value/1e3 else top_five$value =  top_five$GrowthRate/1e2
 #   
 #   top_five = top_five %>% select(Date = date, Value = value, Sector = cat_desc2) %>% 
 #     spread(key=Sector, value = Value)
@@ -319,7 +329,7 @@ build_top5_plot = function(top_five, type_of_data="value", xlabel = "", ylabel="
 
 # eComm plots ####
 geteComVsRetailSales = function(){
-  ecomm_df %>% ggplot(aes(x=date, y = value/1e3, color = cat_desc)) +
+  ecomm_df %>% ggplot(aes(x=date, y = value/1e3, color = Sector)) +
     geom_line() +  
     theme(legend.text = element_text(colour="blue", size=7), legend.position="bottom") +
     theme(axis.text.y = element_text(angle = 90, hjust = 1))+
@@ -336,7 +346,7 @@ getEcommPctSales = function(){
 }
 
 getEcomYOYGrowth = function(){
-  ecomm_df %>% ggplot(aes(x = date, y = pct_diff/100, color = cat_desc)) +
+  ecomm_df %>% ggplot(aes(x = date, y = GrowthRate/100, color = Sector)) +
     geom_line() + geom_smooth(se = FALSE) +
     geom_hline(yintercept = 0, color = "black") +
     theme(axis.text.y = element_text(angle = 90, hjust = 1)) +
@@ -346,7 +356,7 @@ getEcomYOYGrowth = function(){
 
 
 getSeasonalityChart = function(df, sector, data_type="SM") {
-  df = df %>% filter(trimws(cat_desc2) == trimws(sector), dt_code==data_type)
+  df = df %>% filter(trimws(Sector) == trimws(sector), dt_code==data_type)
   if(dim(df)[1] == 0) return(NULL)
   
   linearModel = loess(value~month_value,na.omit(df))
@@ -384,7 +394,7 @@ getSeasonalityChart = function(df, sector, data_type="SM") {
 # upd_df = applyRollups(upd_df, period = "year", YoY = TRUE)
 # 
 # upd_df = upd_df %>% filter(year(date) == current_year) %>%
-#           mutate(value = value/1e3, pct_diff = pct_diff/1e2)
+#           mutate(value = value/1e3, GrowthRate = GrowthRate/1e2)
 # upd_df = na.omit(upd_df)
 # 
 # median_value = median(upd_df$value)
