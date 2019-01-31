@@ -45,8 +45,6 @@ shinyServer(function(input, output, session) {
   })
 
   sector_selected = reactive({
-    print("in reactive")
-    print(input$category_selected)
     input$category_selected
   })
   
@@ -69,9 +67,6 @@ shinyServer(function(input, output, session) {
   })
 
   observe({
-    print(growth_flag())
-    # print(typeof(period_selected()))
-    # print(class(period_selected()))
 
   })
 
@@ -83,7 +78,7 @@ shinyServer(function(input, output, session) {
     upd_df = applyFilters(df3,min_date = min_year(), max_date = max_year(), 
                           SA=sea_adjusted_flag(), data_type = sales_inventory_flag() )
     upd_df = applyRollups(upd_df, period = period_selected())
-    g = build_primary_plot(upd_df, growth_flag(), xlabel = "", ylabel = ylable_text ) + theme_fivethirtyeight()
+    g = build_primary_plot(upd_df, growth_flag(), xlabel = "", ylabel = ylable_text )
 
     ggplotly(g) %>% layout(legend = list(orientation = "h", x = 0.4, y =-0.2))
     
@@ -93,16 +88,20 @@ shinyServer(function(input, output, session) {
     ylable_text = paste0(ifelse(sales_inventory_flag2()=="SM", "Sales ", "Inventory "),
                          ifelse(growth_flag2() == "value", "(in $bln)", "Growth Percent")
                          )
-    print(sector_selected())
     upd_df = applyFilters(df3,min_date = min_year2(), max_date = max_year2(), 
                           data_type = sales_inventory_flag2(), 
                           master_cats = FALSE, sector = sector_selected())
     upd_df = applyRollups(upd_df, period = period_selected2())
     g = build_primary_plot(upd_df, growth_flag2(), xlabel = "", ylabel = ylable_text )
+    
+    validate(
+      need(g, "Data not available for selected combination")
+    ) 
+    
     ggplotly(g) %>% layout(legend = list(orientation = "h", x = 0.4, y =-0.2))
     
   })
-  
+
   output$top5_plot1 <- renderPlotly({
     upd_df = applyFilters(df3,min_date = min_year(), max_date = max_year(),
                           SA=sea_adjusted_flag(), data_type = sales_inventory_flag(),  master_cats = FALSE )
@@ -110,10 +109,10 @@ shinyServer(function(input, output, session) {
     upd_df = get_top_n(upd_df, 5, growth_flag())
     
     g = build_top5_plot(upd_df, xlabel = "" ) + scale_fill_brewer(palette = "Paired")
-
+    
     ggplotly(g) #%>% layout(legend = list(orientation = "h", x = 1, y =-0.2))
-  })
-  
+  })  
+    
   output$bottom5_plot1 <- renderPlotly({
     upd_df = applyFilters(df3,min_date = min_year(), max_date = max_year(),
                           SA=sea_adjusted_flag(), data_type = sales_inventory_flag(),master_cats = FALSE )
@@ -124,13 +123,36 @@ shinyServer(function(input, output, session) {
     ggplotly(g) %>% layout(legend = list(orientation = "h", x = 0.4, y =-0.2))
   })
   
+  # output$top5_plot1 <- renderGvis({
+  # 
+  #   upd_df = applyFilters(df3,min_date = min_year(), max_date = max_year(),
+  #                         SA=sea_adjusted_flag(), data_type = sales_inventory_flag(),  master_cats = FALSE )
+  # 
+  #   upd_df = applyRollups(upd_df, period = period_selected())
+  #   print(dim(upd_df))
+  #   
+  #   upd_df = get_top_n(upd_df, 5, growth_flag())
+  # 
+  #   g = build_top5_plot(upd_df,type_of_data = growth_flag(), xlabel = "" )
+  #   g
+  # })
+  # 
+  # output$bottom5_plot1 <- renderGvis({
+  #   upd_df = applyFilters(df3,min_date = min_year(), max_date = max_year(),
+  #                         SA=sea_adjusted_flag(), data_type = sales_inventory_flag(),master_cats = FALSE )
+  #   upd_df = applyRollups(upd_df, period = period_selected())
+  #   upd_df = get_top_n(upd_df, -5, growth_flag())
+  #   g = build_top5_plot(upd_df, type_of_data = growth_flag(), xlabel = "" )
+  #   # g
+  # })
+  
   output$tree_plot1 <- renderPlot({
     upd_df = applyFilters(df3,min_date = min_year(), max_date = max_year(),
                           SA=sea_adjusted_flag(), data_type = sales_inventory_flag(), master_cats = FALSE )
     upd_df = applyRollups(upd_df, period = period_selected())
 
-    g = treemap(upd_df,index = "cat_desc2", vSize = "value",title = "") + theme_foundation()
-    g
+    g = treemap(upd_df,index = "cat_desc2", vSize = "value",
+                title = "", palette="Set3")
   })
   
   output$salesgrwoth_leader_plot1 <- renderPlotly({
@@ -140,19 +162,21 @@ shinyServer(function(input, output, session) {
     upd_df = applyRollups(upd_df, period = "year", YoY = TRUE)
     
     upd_df = upd_df %>% filter(year(date) == current_year) %>%
-      mutate(value = value/1e3, pct_diff = pct_diff/1e2)
+      mutate(Sales = value/1e3, GrowthRate = pct_diff/1e2, Sector = cat_desc2)
+    # %>%   select(, everything())
     upd_df = na.omit(upd_df)
     
-    median_value = median(upd_df$value)
-    median_growth = median(upd_df$pct_diff)
+    median_value = median(upd_df$Sales)
+    median_growth = median(upd_df$GrowthRate)
     
     
-    g = ggplot(upd_df, aes(x=value, y = pct_diff, label=cat_desc2)) + geom_point(size=2, color = "tomato") + 
+    g = ggplot(upd_df, aes(x=Sales, y = GrowthRate, label=Sector)) + 
+      geom_point(size=2, color = "purple") + 
       # geom_text(aes(label=ifelse((pct_diff>median_growth & value > median_value),cat_desc2,""),hjust=0,vjust=0, size = 2, nudge_y = 0.5 ))+
       # geom_label()+  
       geom_hline(yintercept = median_growth, color="orange")+
       geom_vline(xintercept =  median_value, color="orange")+
-      theme(legend.position = "null") +
+      # theme(legend.position = "null") +
       scale_y_continuous(labels = percent) + 
       scale_x_continuous(labels = comma) +
       labs(x = "Sales (in $bln)", y = "Growth") +
@@ -162,9 +186,7 @@ shinyServer(function(input, output, session) {
   })
 
   output$point_plot2 <- renderPlotly({
-    print(min_year)
-    print(max_year)
-    
+
     upd_df = applyFilters(df3,min_date = global_min_year, max_date = global_max_year)
     
     upd_df = applyRollups(upd_df, period = "quarter", YoY = TRUE)
@@ -208,14 +230,19 @@ shinyServer(function(input, output, session) {
   })
   
   output$seasonality_plot1 <- renderPlotly({
-    print("in the plot")
-    print(sector_selected())
     g = getSeasonalityChart(nsa_cat_df, sector_selected())
+    validate(
+      need(g, "Sales data not available for selected sector")
+    )     
     ggplotly(g)
   })
 
   output$seasonality_plot2 <- renderPlotly({
     g = getSeasonalityChart(nsa_cat_df, sector_selected(), data_type = "IM")
+
+    validate(
+      need(g, "Inventory data not available for selected sector")
+    )    
     ggplotly(g) 
   })
   

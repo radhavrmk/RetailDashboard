@@ -1,5 +1,6 @@
 library(shiny)
 library(shinydashboard)
+library(googleVis)
 
 # eComm tab rows ####
 ecomm_frow_top = fluidRow(

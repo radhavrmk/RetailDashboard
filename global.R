@@ -7,6 +7,7 @@ library(plotly)
 library(treemap)
 library(RColorBrewer)
 library(ggthemes)
+library(googleVis)
 
 
 # Global Variables ####
@@ -248,46 +249,73 @@ ecomm_stats = ecomm_df %>% group_by(cat_desc) %>%
   top_n(4, wt=date) %>%
   summarise(total_value = sum(value), avg_growth = mean(pct_diff))
 
+nsa_cat_df = df3 %>% filter(is_adj==0) %>% select(cat_desc2, date, dt_code, value) %>%
+  mutate(month_value = (year(date)-min(year(date)))*12 + month(date), month = as.factor(month(date)))
 
-build_primary_plot = function(df_upd, type_of_data, xlabel = "", ylabel="", title=""){
+
+build_primary_plot = function(df, type_of_data, xlabel = "", ylabel="", title=""){
   
-  df_upd = na.omit(df_upd) 
-  if(type_of_data == "value") df_upd$value =  df_upd$value/1e3
-  else if (type_of_data == "pct_diff") df_upd$pct_diff =  df_upd$pct_diff/1e2
+  df = na.omit(df) 
+  if(type_of_data == "value") df$value =  df$value/1e3
+  else if (type_of_data == "pct_diff") df$pct_diff =  df$pct_diff/1e2
+
+  df = df %>% select(Date = date, Value = ifelse(type_of_data == "value", "value", "pct_diff"), 
+                     Sector = cat_desc2, everything())
   
-  g = df_upd  %>%
-    ggplot(aes(x=date, y=df_upd[[type_of_data]], color=cat_desc2)) +
+  if(dim(df)[1] == 0) return(NULL)
+    
+  g = df  %>%
+    ggplot(aes(x=Date, y=Value, color=Sector)) +
     geom_line(na.rm = TRUE) +
     scale_x_date(breaks = date_breaks("1 year"), labels = date_format("%Y")) +
     theme(axis.text.x = element_text(angle = 90, hjust = 1))+
     labs(x=xlabel, y =ylabel, title = title ) +
-    theme(legend.text = element_text(colour="blue", size=7), legend.position="bottom") 
-  
-  if (type_of_data == "value") g = g + scale_y_continuous(labels = comma) 
-  else if (type_of_data == "pct_diff") g = g + scale_y_continuous(labels = percent) 
-  #   labs(x = "", y = "Quarterly Sales(in $bln)")   
+    theme(legend.text = element_text(colour="blue", size=7), legend.position="bottom") +
+    scale_color_brewer(palette = "Accent") +
+    theme_fivethirtyeight()
+
+      
+  if (type_of_data == "value") g = g + scale_y_continuous(labels = comma)
+  else if (type_of_data == "pct_diff") g = g + scale_y_continuous(labels = percent)
   return(g)
 }
 
 build_top5_plot = function(top_five, type_of_data="value", xlabel = "", ylabel="", title="" ){
   
-  top_five = na.omit(top_five) 
-  if(type_of_data == "value") top_five$value =  top_five$value/1e3
-  else if (type_of_data == "pct_diff") top_five$pct_diff =  top_five$pct_diff/1e2
+  if(dim(top_five)[1] == 0) return(NULL)
+  top_five = top_five %>% select(Date = date, Sector = cat_desc2, everything())
+  if(type_of_data == "value") top_five$Value =  top_five$value/1e3
+  else if (type_of_data == "pct_diff") top_five$Value =  top_five$pct_diff/1e2
   
-  g = top_five %>% ggplot(aes(x=date, y=top_five[[type_of_data]], fill=cat_desc2)) +
+  
+  g = top_five %>% ggplot(aes(x=Date, y=Value, fill=Sector)) +
     geom_bar(stat = "identity") +
     theme(axis.text.x = element_text(angle = 90, hjust = 1))+
     labs(x=xlabel, y =ylabel, title = title ) +
     theme(legend.text = element_text(colour="blue", size=7), legend.position="none") 
-  # + theme_bw()
-  
-  
+
   if (type_of_data == "value") g = g + scale_y_continuous(labels = comma) 
   else if (type_of_data == "pct_diff") g = g + scale_y_continuous(labels = percent) 
   
   return(g)
 }
+
+
+# build_top5_plot = function(top_five, type_of_data="value", xlabel = "", ylabel="", title="" ){
+#   
+#   top_five = na.omit(top_five)
+#   if(type_of_data == "value") top_five$value =  top_five$value/1e3 else top_five$value =  top_five$pct_diff/1e2
+#   
+#   top_five = top_five %>% select(Date = date, Value = value, Sector = cat_desc2) %>% 
+#     spread(key=Sector, value = Value)
+#   str(top_five)
+#   g = gvisColumnChart(top_five, 
+#                       options=list(isStacked=TRUE, 
+#                               height = 400, width=450,
+#                               legend = "{ position: 'top', maxLines: 3 }",
+#                               chartArea="{left:60,top:60,width:'80%',height:'80%'}"))
+#   return(g)
+# }
 
 # eComm plots ####
 geteComVsRetailSales = function(){
@@ -317,18 +345,10 @@ getEcomYOYGrowth = function(){
 }
 
 
-
-nsa_cat_df = df3 %>% filter(is_adj==0) %>% select(cat_desc2, date, dt_code, value) %>%
-    mutate(month_value = (year(date)-min(year(date)))*12 + month(date), month = as.factor(month(date)))
-
-xx = nsa_cat_df %>% filter(cat_desc2 == "All Other Gen. Merchandise Stores", dt_code == "SM")
-
 getSeasonalityChart = function(df, sector, data_type="SM") {
-  print("in getSeasonality")
-  print(sector)
-  print(dim(df))
   df = df %>% filter(trimws(cat_desc2) == trimws(sector), dt_code==data_type)
-  print(dim(df))
+  if(dim(df)[1] == 0) return(NULL)
+  
   linearModel = loess(value~month_value,na.omit(df))
   summary(linearModel)  
   df$model_residuals = residuals(linearModel)
@@ -339,12 +359,12 @@ getSeasonalityChart = function(df, sector, data_type="SM") {
   return(g)
 }
 
-# All Other Gen. Merchandise Stores
-g = getSeasonalityChart(nsa_cat_df, "All Other Gen. Merchandise Stores")
-
-g = getSeasonalityChart(nsa_cat_df, "Food and Beverage Stores")
-g
-# + 
+# # All Other Gen. Merchandise Stores
+# g = getSeasonalityChart(nsa_cat_df, "All Other Gen. Merchandise Stores")
+# 
+# g = getSeasonalityChart(nsa_cat_df, "Food and Beverage Stores")
+# g
+# # + 
 #   
 #       geom_point(aes(x = month, y = median(model_residuals)))
 
@@ -592,3 +612,27 @@ g
 #   mutate(period = paste0(as.character(year), "-" , as.character(quarter))) %>%
 #   group_by(period,quarter) %>%
 #   top_n(-5,wt = value) 
+
+
+########
+#### Code for checking top5 plot
+# xx = applyFilters(df3,min_date = 1992, max_date = 2018,
+#                   SA=1, data_type = "SM",  master_cats = FALSE )
+# 
+# yy = applyRollups(xx, period = "month")
+# 
+# zz = get_top_n(yy, 5, "value")
+# zz = get_top_n(yy, 5, "pct_diff")
+# 
+# top_five = na.omit(zz)
+# top_five$value =  top_five$value/1e3 
+# top_five$value =  top_five$pct_diff
+# 
+# top_five = top_five %>% select(Date = date, Value = value, Sector = cat_desc2) %>% 
+#   spread(key=Sector, value = Value)
+# unique(zz$cat_desc2)
+# g = gvisColumnChart(top_five, options=list(isStacked=TRUE, 
+#                                            height = 400, width=450,
+#                                            legend = "{ position: 'top', maxLines: 3 }",
+#                                            chartArea="{left:60,top:60,width:'80%',height:'80%'}"))
+# # plot(g)
