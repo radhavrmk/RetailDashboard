@@ -53,13 +53,13 @@ ret_frow_top1 = fluidRow(
     width = 12,
     column(
       width = 3,
-      selectizeInput("period_selected", "Data Frequency", period_disp, selected = period_disp[3])
+      selectizeInput("period_selected", "Data Frequency", period_disp, selected = period_disp[1])
     ),
     
     column(
       width = 3,
       selectizeInput("from_year", "From", years_disp, selected =
-                       min(years_disp))
+                       max(years_disp)-12)
     ),
     column(
       width = 3,
@@ -161,7 +161,7 @@ ret_frow4 = fluidRow(
     width = 12,
     box(
       width = 12,
-      title = "Sales + Growth Leaders - Last Year (2017)",
+      title = "Sales + Growth Leaders",
       status = "success",
       solidHeader = FALSE,
       plotlyOutput("salesgrwoth_leader_plot1")
@@ -217,7 +217,7 @@ cat_frow_top1 = fluidRow(
     column(
       width = 3,
       selectizeInput("from_year2", "From", years_disp, selected =
-                       min(years_disp))
+                       max(years_disp)-12)
     ),
     column(
       width = 3,

@@ -224,11 +224,15 @@ get_top_n = function(df, number_needed=5, data_type = "value"){
   return(top_five)
 }
 
-build_growth_sales_leaders = function(){
-  df = applyFilters(df3,min_date = global_min_year, max_date = global_max_year,  master_cats = FALSE)
-  df = applyRollups(df, period = "year", YoY = TRUE)
-  df = df %>% filter(year(date) == current_year) %>%
-    mutate(Sales = value/1e3, GrowthRate = GrowthRate/1e2)
+build_growth_sales_leaders = function(df){
+  df = applyRollups(df, period = "month", YoY = TRUE)
+  df = na.omit(df)
+  df = df %>% group_by(Sector, year(date)) %>%
+    summarize(Sales = sum(value), GrowthRate = mean(GrowthRate,na.rm = TRUE)) %>%
+    group_by(Sector) %>%
+    summarize(Sales = mean(Sales), GrowthRate = mean(GrowthRate)) %>%
+    mutate(Sales = Sales/1e3, GrowthRate = GrowthRate/1e2)
+  glimpse(df)
   return(df)
 }
 
@@ -237,16 +241,17 @@ df = loadPreprocessRetailData()
 ecomm_raw_df = loadEcommerceData()
 ecomm_df = processEcommerceData(ecomm_raw_df, df)
 df3 = cleanRetailData(df) ## to be done after loading retail data 
+df = NULL
 subsec_list = createSubSectorList(df3)
 
 # Set further global variables ####
 # Hardcoding for 2017 below need to be removed and get last full year from data
-global_min_year = min(df$year)
-global_max_year = max(df$year)
+global_min_year = min(df3$year)
+global_max_year = max(df3$year)
 data_type = "SA"
 current_year= 2017
 current_quarter = 4
-years_disp = unique(df$year)
+years_disp = unique(df3$year)
 quarters_disp = 1:4
 months_disp = 1:12
 period_disp = c("Yearly"="year", "Quarterly"="quarter", "Monthly" = "month")
@@ -259,9 +264,6 @@ ecomm_stats = ecomm_df %>% group_by(Sector) %>%
 
 nsa_cat_df = df3 %>% filter(is_adj==0) %>% select(Sector, date, dt_code, value) %>%
   mutate(month_value = (year(date)-min(year(date)))*12 + month(date), month = as.factor(month(date)))
-
-sales_growth_leaders = build_growth_sales_leaders()
-
 
 build_primary_plot = function(df, type_of_data, xlabel = "", ylabel="", title=""){
   

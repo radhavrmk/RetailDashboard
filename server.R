@@ -134,7 +134,9 @@ shinyServer(function(input, output, session) {
   
   output$salesgrwoth_leader_plot1 <- renderPlotly({
 
-    upd_df = na.omit(sales_growth_leaders)
+    df = applyFilters(df3,min_date = min_year(), max_date = max_year(),  master_cats = FALSE)
+    upd_df = na.omit(build_growth_sales_leaders(df))
+    
     median_value = median(upd_df$Sales)
     median_growth = median(upd_df$GrowthRate)
     
