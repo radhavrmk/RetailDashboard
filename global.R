@@ -6,8 +6,8 @@ library(dplyr)
 library(plotly)
 library(treemap)
 library(RColorBrewer)
-library(ggthemes)
-library(googleVis)
+# library(ggthemes)
+# library(googleVis)
 
 
 # Global Variables ####
@@ -283,8 +283,8 @@ build_primary_plot = function(df, type_of_data, xlabel = "", ylabel="", title=""
     theme(axis.text.x = element_text(angle = 90, hjust = 1))+
     labs(x=xlabel, y =ylabel, title = title ) +
     theme(legend.text = element_text(colour="blue", size=7), legend.position="bottom") +
-    scale_color_brewer(palette = "Accent") +
-    theme_fivethirtyeight()
+    scale_color_brewer(palette = "Accent")# +
+    # theme_fivethirtyeight()
 
       
   if (type_of_data == "value") g = g + scale_y_continuous(labels = comma)
@@ -292,19 +292,36 @@ build_primary_plot = function(df, type_of_data, xlabel = "", ylabel="", title=""
   return(g)
 }
 
+getColorVector = function(n){
+  qual_col_pals = brewer.pal.info[brewer.pal.info$category == 'qual',]
+  col_vector = unlist(mapply(brewer.pal, qual_col_pals$maxcolors, rownames(qual_col_pals)))
+  # pie(rep(1,n), col=sample(col_vector, n))
+  return(col_vector)
+}
+
 build_top5_plot = function(top_five, type_of_data="value", xlabel = "", ylabel="", title="" ){
   
   if(dim(top_five)[1] == 0) return(NULL)
-  top_five = top_five %>% select(Date = date, everything())
   if(type_of_data == "value") top_five$Value =  top_five$value/1e3
   else if (type_of_data == "GrowthRate") top_five$Value =  top_five$GrowthRate/1e2
+
+  top_five = top_five %>% select(Date = date, Value, Sector) %>%
+    arrange(desc(Value))
   
+    
+  n_colors =  length(unique(top_five$Sector))
+  color_vector = getColorVector(n_colors)
+  print(paste0("Colors : ", length(color_vector)))
+
   
   g = top_five %>% ggplot(aes(x=Date, y=Value, fill=Sector)) +
     geom_bar(stat = "identity") +
     theme(axis.text.x = element_text(angle = 90, hjust = 1))+
     labs(x=xlabel, y =ylabel, title = title ) +
-    theme(legend.text = element_text(colour="blue", size=7), legend.position="none") 
+    theme(panel.background = element_rect(fill = "white", color="white"), 
+          legend.text = element_text(colour="blue", size=7), legend.position="none") +
+    scale_fill_manual(values=color_vector)
+
 
   if (type_of_data == "value") g = g + scale_y_continuous(labels = comma) 
   else if (type_of_data == "GrowthRate") g = g + scale_y_continuous(labels = percent) 

@@ -16,10 +16,10 @@ Same data available from [FRED Economic Data from St. Louis Fed](https://fred.st
 **eCommerce Sales Data :** 
 This Data is also available from same sources mentioned above. Note that this data includes Auto data as well and so the gross numbers will be higher than Retail numbers used above.
 
-Type                      | Publish Frequency | Data Granularity
---------------------------|-------------------|------------------ 
-Retail Sales and Inventory| Monthly           | Monthly
-Retail eCommerce Data     | Quarterly         | Quarterly
+Type                         |     Publish Frequency     | Data Granularity
+-----------------------------|---------------------------|------------------ 
+Retail Sales and Inventory   |     Monthly               | Monthly
+Retail eCommerce Data        |     Quarterly             | Quarterly
 
 
 
@@ -30,7 +30,7 @@ Retail eCommerce Data     | Quarterly         | Quarterly
 
 **2. Sub Sector Analysis Page :** This page helps explore data specific to a sub-sector within Retail.
 
-**3. eCommerce Page: ** This page provides some basic statistics on Retail eCommerce (note that eCommerce is broader than Retail eCommerce). 
+**3. eCommerce Page:** This page provides some basic statistics on Retail eCommerce (note that eCommerce is broader than Retail eCommerce). 
 
 
 ### Future Work:

@@ -53,7 +53,7 @@ ret_frow_top1 = fluidRow(
     width = 12,
     column(
       width = 3,
-      selectizeInput("period_selected", "Data Frequency", period_disp, selected = period_disp[1])
+      selectizeInput("period_selected", "Data Frequency", period_disp, selected = period_disp[3])
     ),
     
     column(
@@ -174,7 +174,7 @@ cat_frow_top2 = fluidRow(
     width = 12,
     column(
       width = 3,
-      selectizeInput("period_selected2", "Data Frequency", period_disp, selected = period_disp[1])
+      selectizeInput("period_selected2", "Data Frequency", period_disp, selected = period_disp[3])
     ),
     column(width = 2),
     

@@ -1,7 +1,7 @@
 library(shiny)
 library(shinydashboard)
-library(RColorBrewer)
-library(ggthemes)
+# library(RColorBrewer)
+# library(ggthemes)
 
 shinyServer(function(input, output, session) {
 
@@ -117,13 +117,13 @@ shinyServer(function(input, output, session) {
 
   output$top5_plot1 <- renderPlotly({
     upd_df = get_top_n(retail_page_df2(), 5, growth_flag())
-    g = build_top5_plot(upd_df, xlabel = "" ) + scale_fill_brewer(palette = "Paired")
+    g = build_top5_plot(upd_df, xlabel = "" ) 
     ggplotly(g) #%>% layout(legend = list(orientation = "h", x = 1, y =-0.2))
   })  
     
   output$bottom5_plot1 <- renderPlotly({
     upd_df = get_top_n(retail_page_df2(), -5, growth_flag())
-    g = build_top5_plot(upd_df, xlabel = "" ) + scale_fill_brewer(palette = "Paired")
+    g = build_top5_plot(upd_df, xlabel = "" ) 
     ggplotly(g) %>% layout(legend = list(orientation = "h", x = 0.4, y =-0.2))
   })
   
@@ -140,14 +140,15 @@ shinyServer(function(input, output, session) {
     median_value = median(upd_df$Sales)
     median_growth = median(upd_df$GrowthRate)
     
+    
     g = ggplot(upd_df, aes(x=Sales, y = GrowthRate, label=Sector)) + 
       geom_point(size=2, color = "purple") + 
       geom_hline(yintercept = median_growth, color="orange")+
       geom_vline(xintercept =  median_value, color="orange")+
       scale_y_continuous(labels = percent) + 
       scale_x_continuous(labels = comma) +
-      labs(x = "Sales (in $bln)", y = "Growth") +
-      theme_gdocs()
+      labs(x = "Sales (in $bln)", y = "Growth") #+
+      # theme_gdocs()
       
     ggplotly(g)
   })
@@ -256,29 +257,5 @@ shinyServer(function(input, output, session) {
   })
   
 })
-
-
-# output$top5_plot1 <- renderGvis({
-# 
-#   upd_df = applyFilters(df3,min_date = min_year(), max_date = max_year(),
-#                         SA=sea_adjusted_flag(), data_type = sales_inventory_flag(),  master_cats = FALSE )
-# 
-#   upd_df = applyRollups(upd_df, period = period_selected())
-#   print(dim(upd_df))
-#   
-#   upd_df = get_top_n(upd_df, 5, growth_flag())
-# 
-#   g = build_top5_plot(upd_df,type_of_data = growth_flag(), xlabel = "" )
-#   g
-# })
-# 
-# output$bottom5_plot1 <- renderGvis({
-#   upd_df = applyFilters(df3,min_date = min_year(), max_date = max_year(),
-#                         SA=sea_adjusted_flag(), data_type = sales_inventory_flag(),master_cats = FALSE )
-#   upd_df = applyRollups(upd_df, period = period_selected())
-#   upd_df = get_top_n(upd_df, -5, growth_flag())
-#   g = build_top5_plot(upd_df, type_of_data = growth_flag(), xlabel = "" )
-#   # g
-# })
 
 
