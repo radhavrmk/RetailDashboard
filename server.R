@@ -117,19 +117,19 @@ shinyServer(function(input, output, session) {
 
   output$top5_plot1 <- renderPlotly({
     upd_df = get_top_n(retail_page_df2(), 5, growth_flag())
-    g = build_top5_plot(upd_df, xlabel = "" ) 
+    g = build_top5_plot(upd_df, xlabel = "") 
     ggplotly(g) #%>% layout(legend = list(orientation = "h", x = 1, y =-0.2))
   })  
     
   output$bottom5_plot1 <- renderPlotly({
     upd_df = get_top_n(retail_page_df2(), -5, growth_flag())
     g = build_top5_plot(upd_df, xlabel = "" ) 
-    ggplotly(g) %>% layout(legend = list(orientation = "h", x = 0.4, y =-0.2))
+    ggplotly(g) #%>% layout(legend = list(orientation = "h", x = 0.4, y =-0.2))
   })
   
   output$tree_plot1 <- renderPlot({
     g = treemap(retail_page_df2(),index = "Sector", vSize = "value",
-                title = "", palette="Set3")
+                title = paste0("Period :", min_year(), " - ", max_year()), palette="Set3")
   })
   
   output$salesgrwoth_leader_plot1 <- renderPlotly({
@@ -147,8 +147,8 @@ shinyServer(function(input, output, session) {
       geom_vline(xintercept =  median_value, color="orange")+
       scale_y_continuous(labels = percent) + 
       scale_x_continuous(labels = comma) +
-      labs(x = "Sales (in $bln)", y = "Growth") #+
-      # theme_gdocs()
+      labs(x = "Sales (in $bln)", y = "Growth") 
+    # +geom_text(aes(label=ifelse((GrowthRate>median_growth & Sales > median_value),Sector,""),hjust=0,vjust=0, size = 0.5, nudge_y = 0.5 ))
       
     ggplotly(g)
   })

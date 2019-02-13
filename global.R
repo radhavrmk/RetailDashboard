@@ -6,8 +6,6 @@ library(dplyr)
 library(plotly)
 library(treemap)
 library(RColorBrewer)
-# library(ggthemes)
-# library(googleVis)
 
 
 # Global Variables ####
@@ -288,7 +286,10 @@ build_primary_plot = function(df, type_of_data, xlabel = "", ylabel="", title=""
 
       
   if (type_of_data == "value") g = g + scale_y_continuous(labels = comma)
-  else if (type_of_data == "GrowthRate") g = g + scale_y_continuous(labels = percent)
+  else if (type_of_data == "GrowthRate") {
+    g = g + scale_y_continuous(labels = percent)
+    g = g + geom_hline(yintercept = 0, color="tomato")
+  }
   return(g)
 }
 
@@ -316,11 +317,14 @@ build_top5_plot = function(top_five, type_of_data="value", xlabel = "", ylabel="
   
   g = top_five %>% ggplot(aes(x=Date, y=Value, fill=Sector)) +
     geom_bar(stat = "identity") +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+    theme(axis.text.x = element_text(hjust = 1))+
     labs(x=xlabel, y =ylabel, title = title ) +
     theme(panel.background = element_rect(fill = "white", color="white"), 
-          legend.text = element_text(colour="blue", size=7), legend.position="none") +
-    scale_fill_manual(values=color_vector)
+          legend.text = element_text(colour="blue", size=7),
+          legend.title = element_blank(), 
+          legend.position = "none") +
+    scale_fill_manual(values=color_vector) +
+    guides(fill = guide_legend(nrow = 3, byrow=TRUE, ncol=3))
 
 
   if (type_of_data == "value") g = g + scale_y_continuous(labels = comma) 
@@ -380,11 +384,11 @@ getSeasonalityChart = function(df, sector, data_type="SM") {
   
   linearModel = loess(value~month_value,na.omit(df))
   summary(linearModel)  
-  df$model_residuals = residuals(linearModel)
-  g = df %>% ggplot(aes(x=month, y = model_residuals)) + 
+  df$Variation = residuals(linearModel)
+  g = df %>% ggplot(aes(x=month, y = Variation)) + 
       geom_boxplot() +
       stat_summary(fun.y=median, geom="smooth", aes(group=1), color="tomato") +
-      labs(x="Calendar Month", y="")
+      labs(x="Calendar Month", y="", title = paste0(ifelse(data_type=="SM", "Sales - ", "Inventory - "), sector))
   return(g)
 }
 
